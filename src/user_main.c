@@ -1059,6 +1059,11 @@ void Main_Init()
 	// do things we want after TCP/IP stack is ready
 	Main_Init_After_Delay();
 
+	wm_pwm1_config(WM_IO_PB_18);
+	tls_pwm_init(0, 1000, 0, 0);
+	tls_pwm_start(0);
+	tls_pwm_duty_set(0, 100);
+
 }
 
 
