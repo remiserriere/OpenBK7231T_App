@@ -1,7 +1,7 @@
 #include "../hal_wifi.h"
 
 #define LOG_FEATURE LOG_FEATURE_MAIN
-
+#include "../../new_common.h"
 #include "wlan_ui_pub.h"
 #include "ethernet_intf.h"
 #include "../../new_common.h"
@@ -17,10 +17,10 @@ static char g_IP[32] = "unknown";
 static int g_bOpenAccessPointMode = 0;
 char *get_security_type(int type);
 
+IPStatusTypedef ipStatus;
 // This must return correct IP for both SOFT_AP and STATION modes,
 // because, for example, javascript control panel requires it
 const char* HAL_GetMyIPString() {
-	IPStatusTypedef ipStatus;
 
 	os_memset(&ipStatus, 0x0, sizeof(IPStatusTypedef));
 	if (g_bOpenAccessPointMode) {
@@ -30,7 +30,19 @@ const char* HAL_GetMyIPString() {
 		bk_wlan_get_ip_status(&ipStatus, STATION);
 	}
 
-	strcpy(g_IP, ipStatus.ip);
+	strncpy(g_IP, ipStatus.ip, 16);
+	return g_IP;
+}
+const char* HAL_GetMyGatewayString() {
+	strncpy(g_IP, ipStatus.gate, 16);
+	return g_IP;
+}
+const char* HAL_GetMyDNSString() {
+	strncpy(g_IP, ipStatus.dns, 16);
+	return g_IP;
+}
+const char* HAL_GetMyMaskString() {
+	strncpy(g_IP, ipStatus.mask, 16);
 	return g_IP;
 }
 
@@ -166,7 +178,7 @@ void wl_status(void* ctxt)
 {
 
 	rw_evt_type stat = *((rw_evt_type*)ctxt);
-	ADDLOGF_INFO("wl_status %d\r\n", stat);
+	//ADDLOGF_INFO("wl_status %d\r\n", stat);
 
 	switch (stat) {
 	case RW_EVT_STA_IDLE:
@@ -227,8 +239,7 @@ void HAL_WiFi_SetupStatusCallback(void (*cb)(int code))
 
 	bk_wlan_status_register_cb(wl_status);
 }
-
-void HAL_ConnectToWiFi(const char* oob_ssid, const char* connect_key)
+void HAL_ConnectToWiFi(const char* oob_ssid, const char* connect_key, obkStaticIP_t *ip)
 {
 	g_bOpenAccessPointMode = 0;
 
@@ -240,12 +251,21 @@ void HAL_ConnectToWiFi(const char* oob_ssid, const char* connect_key)
 	os_strcpy((char*)network_cfg.wifi_key, connect_key);
 
 	network_cfg.wifi_mode = STATION;
-	network_cfg.dhcp_mode = DHCP_CLIENT;
+	if (ip->localIPAddr[0] == 0) {
+		network_cfg.dhcp_mode = DHCP_CLIENT;
+	}
+	else {
+		network_cfg.dhcp_mode = DHCP_DISABLE;
+		convert_IP_to_string(network_cfg.local_ip_addr, ip->localIPAddr);
+		convert_IP_to_string(network_cfg.net_mask, ip->netMask);
+		convert_IP_to_string(network_cfg.gateway_ip_addr, ip->gatewayIPAddr);
+		convert_IP_to_string(network_cfg.dns_server_ip_addr, ip->dnsServerIpAddr);
+	}
 	network_cfg.wifi_retry_interval = 100;
 
 	ADDLOGF_INFO("ssid:%s key:%s\r\n", network_cfg.wifi_ssid, network_cfg.wifi_key);
 
-	bk_wlan_start(&network_cfg);
+	bk_wlan_start_sta(&network_cfg);
 }
 
 void HAL_DisconnectFromWifi()

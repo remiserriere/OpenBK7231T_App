@@ -1,12 +1,12 @@
 #ifdef WINDOWS
 
-#include "selftest_local.h".
+#include "selftest_local.h"
 
 void Test_LFS() {
 	char buffer[64];
 	
 	// reset whole device
-	SIM_ClearOBK();
+	SIM_ClearOBK(0);
 	CMD_ExecuteCommand("lfs_format", 0);
 
 	// send file content as POST to REST interface
@@ -111,6 +111,9 @@ void Test_LFS() {
 	// get this file 
 	Test_FakeHTTPClientPacket_GET("api/lfs/command_file_2.txt");
 	SELFTEST_ASSERT_HTML_REPLY("this string has spaces really");
+	CMD_ExecuteCommand("lfs_append command_file_2.txt !!", 0);
+	Test_FakeHTTPClientPacket_GET("api/lfs/command_file_2.txt");
+	SELFTEST_ASSERT_HTML_REPLY("this string has spaces really!!");
 
 	// check file commands
 	CMD_ExecuteCommand("lfs_append numbers.txt value is ", 0);

@@ -7,64 +7,16 @@
 #include "../cJSON/cJSON.h"
 #include <ctype.h>
 #include "cmd_local.h"
-#ifdef BK_LITTLEFS
+#if ENABLE_LITTLEFS
 	#include "../littlefs/our_lfs.h"
 #endif
 
+#if ENABLE_TEST_COMMANDS
 
-// run an aliased command
-static commandResult_t runcmd(const void * context, const char *cmd, const char *args, int cmdFlags){
-    char *c = (char *)context;
- //   char *p = c;
-
- //   while (*p && !isWhiteSpace(*p)) {
- //       p++;
-	//}
- //   if (*p) p++;
-    return CMD_ExecuteCommand(c,cmdFlags);
-}
-
-// run an aliased command
-static commandResult_t alias(const void * context, const char *cmd, const char *args, int cmdFlags){
-	const char *alias;
-	const char *ocmd;
-	char *cmdMem;
-	char *aliasMem;
-	command_t *existing;
-
-	if(args==0||*args==0) {
-		ADDLOG_INFO(LOG_FEATURE_EVENT, "CMD_Alias: command require 2 args");
-		return CMD_RES_NOT_ENOUGH_ARGUMENTS;
-	}
-	Tokenizer_TokenizeString(args,0);
-	if(Tokenizer_GetArgsCount() < 2) {
-		ADDLOG_INFO(LOG_FEATURE_EVENT, "CMD_Alias: command require 2 args");
-		return CMD_RES_NOT_ENOUGH_ARGUMENTS;
-	}
-
-	alias = Tokenizer_GetArg(0);
-	ocmd = Tokenizer_GetArgFrom(1);
-
-	existing = CMD_Find(alias);
-
-	if(existing!=0) {
-		ADDLOG_INFO(LOG_FEATURE_EVENT, "CMD_Alias: the alias you are trying to use is already in use (as an alias or as a command)");
-		return CMD_RES_BAD_ARGUMENT;
-	}
-
-	cmdMem = strdup(ocmd);
-	aliasMem = strdup(alias);
-
-	ADDLOG_INFO(LOG_FEATURE_CMD, "New alias has been set: %s runs %s", alias, ocmd);
-
-	//cmddetail:{"name":"aliasMem","args":"",
-	//cmddetail:"descr":"Internal usage only. See docs for 'alias' command.",
-	//cmddetail:"fn":"runcmd","file":"cmnds/cmd_test.c","requires":"",
-	//cmddetail:"examples":""}
-    CMD_RegisterCommand(aliasMem, "", runcmd, NULL, cmdMem);
+static commandResult_t CMD_TimeSize(const void* context, const char* cmd, const char* args, int cmdFlags) {
+	ADDLOG_INFO(LOG_FEATURE_CMD, "sizeof(time_t) = %i, sizeof(int) = %i", sizeof(time_t), sizeof(int));
 	return CMD_RES_OK;
 }
-
 // Usage: addRepeatingEvent 1 -1 testMallocFree 100
 static commandResult_t testMallocFree(const void * context, const char *cmd, const char *args, int cmdFlags){
 	int repeats;
@@ -154,7 +106,7 @@ static commandResult_t testRealloc(const void * context, const char *cmd, const 
 
 static commandResult_t testLog(const void * context, const char *cmd, const char *args, int cmdFlags){
 	int a = 123;
-	float b = 3.14;
+	float b = 3.14f;
 
 	ADDLOG_INFO(LOG_FEATURE_CMD, "This is an int - %i",a);
 	ADDLOG_INFO(LOG_FEATURE_CMD, "This is a float - %f",b);
@@ -164,7 +116,7 @@ static commandResult_t testLog(const void * context, const char *cmd, const char
 
 static commandResult_t testFloats(const void * context, const char *cmd, const char *args, int cmdFlags){
 	int a = 123;
-	float b = 3.14;
+	float b = 3.14f;
 	double d;
 
 	ADDLOG_INFO(LOG_FEATURE_CMD, "This is an int - %i",a);
@@ -216,7 +168,7 @@ static commandResult_t testJSON(const void * context, const char *cmd, const cha
 
 
 		root = cJSON_CreateObject();
-		cJSON_AddNumberToObject(root, "uptime", Time_getUpTimeSeconds());
+		cJSON_AddNumberToObject(root, "uptime", g_secondsElapsed);
 		cJSON_AddNumberToObject(root, "consumption_total", ra1 );
 		cJSON_AddNumberToObject(root, "consumption_last_hour",  ra2);
 		cJSON_AddNumberToObject(root, "consumption_stat_index", ra3);
@@ -239,48 +191,243 @@ static commandResult_t testJSON(const void * context, const char *cmd, const cha
 
     return CMD_RES_OK;
 }
-int fortest_commands_init(){
-	//cmddetail:{"name":"alias","args":"[Alias][Command with spaces]",
-	//cmddetail:"descr":"add an aliased command, so a command with spaces can be called with a short, nospaced alias",
-	//cmddetail:"fn":"alias","file":"cmnds/cmd_test.c","requires":"",
-	//cmddetail:"examples":""}
-    CMD_RegisterCommand("alias", "", alias, NULL, NULL);
+
+
+// Usage for continous test: addRepeatingEvent 1 -1 lfs_test1 ir.bat
+static commandResult_t cmnd_lfs_test1(const void * context, const char *cmd, const char *args, int cmdFlags) {
+#if ENABLE_LITTLEFS
+	if (lfs_present()) {
+		lfs_file_t file;
+		int lfsres;
+		char a;
+		int cnt;
+
+		cnt = 0;
+
+		memset(&file, 0, sizeof(lfs_file_t));
+		lfsres = lfs_file_open(&lfs, &file, args, LFS_O_RDONLY);
+
+		ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test1: sizeof(lfs_file_t) %i", sizeof(lfs_file_t));
+		if (lfsres >= 0) {
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test1: openned file %s", args);
+			do {
+				lfsres = lfs_file_read(&lfs, &file, &a, 1);
+				cnt++;
+			} while (lfsres > 0);
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test1: Stopped at char %i\n", cnt);
+
+			lfs_file_close(&lfs, &file);
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test1: closed file %s", args);
+		}
+		else {
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test1: failed to file %s", args);
+		}
+	}
+	else {
+		ADDLOG_ERROR(LOG_FEATURE_CMD, "cmnd_lfs_test1: lfs is absent");
+	}
+#endif
+	return CMD_RES_OK;
+}
+// Usage for continous test: addRepeatingEvent 1 -1 lfs_test2 ir.bat
+static commandResult_t cmnd_lfs_test2(const void * context, const char *cmd, const char *args, int cmdFlags) {
+#if ENABLE_LITTLEFS
+	if (lfs_present()) {
+		lfs_file_t *file;
+		int lfsres;
+		char a;
+		int cnt;
+
+		cnt = 0;
+
+		file = malloc(sizeof(lfs_file_t));
+		if (file == 0) {
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: failed to malloc for %s", args);
+		}
+		else {
+			memset(file, 0, sizeof(lfs_file_t));
+			lfsres = lfs_file_open(&lfs, file, args, LFS_O_RDONLY);
+
+			ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: sizeof(lfs_file_t) %i", sizeof(lfs_file_t));
+			if (lfsres >= 0) {
+				ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: openned file %s", args);
+				do {
+					lfsres = lfs_file_read(&lfs, file, &a, 1);
+					cnt++;
+				} while (lfsres > 0);
+				ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: Stopped at char %i\n", cnt);
+
+				lfs_file_close(&lfs, file);
+				ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: closed file %s", args);
+			}
+			else {
+				ADDLOG_INFO(LOG_FEATURE_CMD, "cmnd_lfs_test2: failed to file %s", args);
+			}
+			free(file);
+		}
+	}
+	else {
+		ADDLOG_ERROR(LOG_FEATURE_CMD, "cmnd_lfs_test2: lfs is absent");
+	}
+#endif
+	return CMD_RES_OK;
+}
+
+static commandResult_t cmnd_json_test(const void * context, const char *cmd, const char *args, int cmdFlags) {
+	int i;
+	cJSON* root;
+	cJSON* stats;
+	char *msg;
+	float dailyStats[4] = { 95.44071197f, 171.84954833f, 181.58737182f, 331.35061645f };
+
+	root = cJSON_CreateObject();
+	{
+		stats = cJSON_CreateArray();
+		for (i = 0; i < 4; i++)
+		{
+			cJSON_AddItemToArray(stats, cJSON_CreateNumber(dailyStats[i]));
+		}
+		cJSON_AddItemToObject(root, "consumption_daily", stats);
+	}
+
+	msg = cJSON_PrintUnformatted(root);
+	cJSON_Delete(root);
+	ADDLOG_INFO(LOG_FEATURE_CMD, "Test JSON reads: %s", msg);
+	free(msg);
+	return CMD_RES_OK;
+}
+// Usage for continous test: addRepeatingEvent 1 -1 lfs_test3 ir.bat
+static commandResult_t cmnd_lfs_test3(const void * context, const char *cmd, const char *args, int cmdFlags) {
+	byte *res;
+
+	res = LFS_ReadFile(args);
+
+	if (res) {
+		free(res);
+	}
+	return CMD_RES_OK;
+}
+static void stackOverflow(int a) {
+	char lala[64];
+	int i;
+
+	for (i = 0; i < sizeof(lala); i++) {
+		lala[i] = a;
+	}
+	stackOverflow(a + 1);
+}
+static commandResult_t CMD_StackOverflow(const void* context, const char* cmd, const char* args, int cmdFlags) {
+	ADDLOG_INFO(LOG_FEATURE_CMD, "CMD_StackOverflow: Will overflow soon");
+
+	stackOverflow(0);
+
+	return CMD_RES_OK;
+}
+static commandResult_t CMD_CrashNull(const void* context, const char* cmd, const char* args, int cmdFlags) {
+	int *p = (int*)0;
+
+	ADDLOG_INFO(LOG_FEATURE_CMD, "CMD_CrashNull: Will crash soon");
+
+	while (1) {
+		*p = 0;
+		p++;
+	}
+
+
+
+	return CMD_RES_OK;
+}
+static commandResult_t CMD_SimonTest(const void* context, const char* cmd, const char* args, int cmdFlags) {
+	ADDLOG_INFO(LOG_FEATURE_CMD, "CMD_SimonTest: ir test routine");
+
+#ifdef PLATFORM_BK7231T
+	//stackCrash(0);
+	//CrashMalloc();
+	// anything
+#endif
+
+	return CMD_RES_OK;
+}
+
+int CMD_InitTestCommands(){
 	//cmddetail:{"name":"testMallocFree","args":"",
 	//cmddetail:"descr":"Test malloc and free functionality to see if the device crashes",
 	//cmddetail:"fn":"testMallocFree","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testMallocFree", NULL, testMallocFree, NULL, NULL);
+    CMD_RegisterCommand("testMallocFree", testMallocFree, NULL);
 	//cmddetail:{"name":"testRealloc","args":"",
 	//cmddetail:"descr":"Test realloc and free functions to see if the device crashes",
 	//cmddetail:"fn":"testRealloc","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testRealloc", NULL, testRealloc, NULL, NULL);
+    CMD_RegisterCommand("testRealloc", testRealloc, NULL);
 	//cmddetail:{"name":"testJSON","args":"",
 	//cmddetail:"descr":"Test the JSON library",
 	//cmddetail:"fn":"testJSON","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testJSON", NULL, testJSON, NULL, NULL);
+    CMD_RegisterCommand("testJSON", testJSON, NULL);
 	//cmddetail:{"name":"testLog","args":"",
 	//cmddetail:"descr":"Do some test printfs to log with integer and a float",
 	//cmddetail:"fn":"testLog","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testLog", NULL, testLog, NULL, NULL);
+    CMD_RegisterCommand("testLog", testLog, NULL);
 	//cmddetail:{"name":"testFloats","args":"",
 	//cmddetail:"descr":"Do some more test printfs with floating point numbers",
 	//cmddetail:"fn":"testFloats","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testFloats", NULL, testFloats, NULL, NULL);
-
+    CMD_RegisterCommand("testFloats", testFloats, NULL);
 	//cmddetail:{"name":"testArgs","args":"",
 	//cmddetail:"descr":"Test tokenizer for args and print back all the given args to console",
 	//cmddetail:"fn":"testArgs","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testArgs", NULL, testArgs, NULL, NULL);
+    CMD_RegisterCommand("testArgs", testArgs, NULL);
 	//cmddetail:{"name":"testStrdup","args":"",
 	//cmddetail:"descr":"Test strdup function to see if it allocs news string correctly, also test freeing the string",
 	//cmddetail:"fn":"testStrdup","file":"cmnds/cmd_test.c","requires":"",
 	//cmddetail:"examples":""}
-    CMD_RegisterCommand("testStrdup", NULL, testStrdup, NULL, NULL);
+    CMD_RegisterCommand("testStrdup", testStrdup, NULL);
+	//cmddetail:{"name":"lfs_test1","args":"[FileName]",
+	//cmddetail:"descr":"Tests the LFS file reading feature.",
+	//cmddetail:"fn":"cmnd_lfs_test1","file":"cmnds/cmd_tasmota.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("lfs_test1", cmnd_lfs_test1, NULL);
+	//cmddetail:{"name":"lfs_test2","args":"[FileName]",
+	//cmddetail:"descr":"Tests the LFS file reading feature.",
+	//cmddetail:"fn":"cmnd_lfs_test2","file":"cmnds/cmd_tasmota.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("lfs_test2", cmnd_lfs_test2, NULL);
+	//cmddetail:{"name":"lfs_test3","args":"[FileName]",
+	//cmddetail:"descr":"Tests the LFS file reading feature.",
+	//cmddetail:"fn":"cmnd_lfs_test3","file":"cmnds/cmd_tasmota.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("lfs_test3", cmnd_lfs_test3, NULL);
+	//cmddetail:{"name":"json_test","args":"",
+	//cmddetail:"descr":"Developer-only command used to test CJSON library",
+	//cmddetail:"fn":"NULL);","file":"cmnds/cmd_test.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("json_test", cmnd_json_test, NULL);
+	//cmddetail:{"name":"TimeSize","args":"",
+	//cmddetail:"descr":"Prints the size of time_t on current platform - sizeof(time_t), only for testing purposes",
+	//cmddetail:"fn":"NULL);","file":"cmnds/cmd_main.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("TimeSize", CMD_TimeSize, NULL);
+	//cmddetail:{"name":"stackOverflow","args":"",
+	//cmddetail:"descr":"Causes a stack overflow",
+	//cmddetail:"fn":"CMD_StackOverflow","file":"cmnds/cmd_main.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("stackOverflow", CMD_StackOverflow, NULL);
+	//cmddetail:{"name":"crashNull","args":"",
+	//cmddetail:"descr":"Causes a crash",
+	//cmddetail:"fn":"CMD_CrashNull","file":"cmnds/cmd_main.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("crashNull", CMD_CrashNull, NULL);
+	//cmddetail:{"name":"simonirtest","args":"",
+	//cmddetail:"descr":"Simons Special Test",
+	//cmddetail:"fn":"CMD_SimonTest","file":"cmnds/cmd_main.c","requires":"",
+	//cmddetail:"examples":""}
+	CMD_RegisterCommand("simonirtest", CMD_SimonTest, NULL);
+
+	
     return 0;
 }
 
+#endif // ENABLE_TEST_COMMANDS

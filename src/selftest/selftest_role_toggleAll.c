@@ -1,10 +1,10 @@
 #ifdef WINDOWS
 
-#include "selftest_local.h".
+#include "selftest_local.h"
 
 void Test_Role_ToggleAll() {
 	// reset whole device
-	SIM_ClearOBK();
+	SIM_ClearOBK(0);
 
 	PIN_SetPinRoleForPinIndex(10, IOR_Relay);
 	PIN_SetPinChannelForPinIndex(10, 0);

@@ -1,10 +1,10 @@
 #ifdef WINDOWS
 
-#include "selftest_local.h".
+#include "selftest_local.h"
 
 void Test_Tasmota_MQTT_Switch() {
-	SIM_ClearOBK();
-	SIM_ClearAndPrepareForMQTTTesting("miscDevice");
+	SIM_ClearOBK(0);
+	SIM_ClearAndPrepareForMQTTTesting("miscDevice", "bekens");
 
 	const char *my_full_device_name = "TestingDevMQTTSwitch";
 	CFG_SetDeviceName(my_full_device_name);
@@ -259,8 +259,8 @@ void Test_Tasmota_MQTT_Switch() {
 
 }
 void Test_Tasmota_MQTT_Switch_Double() {
-	SIM_ClearOBK();
-	SIM_ClearAndPrepareForMQTTTesting("twoRelaysDevice");
+	SIM_ClearOBK(0);
+	SIM_ClearAndPrepareForMQTTTesting("twoRelaysDevice", "bekens");
 
 	const char *my_full_device_name = "TestingDevMQTTSwitch";
 	CFG_SetDeviceName(my_full_device_name);
@@ -402,8 +402,8 @@ void Test_Tasmota_MQTT_Switch_Double() {
 
 }
 void Test_Tasmota_MQTT_RGBCW() {
-	SIM_ClearOBK();
-	SIM_ClearAndPrepareForMQTTTesting("rgbcwBulb");
+	SIM_ClearOBK(0);
+	SIM_ClearAndPrepareForMQTTTesting("rgbcwBulb", "bekens");
 
 	CMD_ExecuteCommand("led_dimmer 50", 0);
 
@@ -615,9 +615,31 @@ void Test_Tasmota_MQTT_RGBCW() {
 	SELFTEST_ASSERT_JSON_VALUE_STRING(0, "POWER", "ON");
 	SIM_ClearMQTTHistory();
 }
+void Test_Backlog() {
+
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog setChannel 1 2; ", 0) == CMD_RES_OK);
+	SELFTEST_ASSERT_CHANNEL(1, 2);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog setChannel 1 3", 0) == CMD_RES_OK);
+	SELFTEST_ASSERT_CHANNEL(1, 3);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog    setChannel 1     4", 0) == CMD_RES_OK);
+	SELFTEST_ASSERT_CHANNEL(1, 4);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog    setChannel 1     5 ;;;", 0) == CMD_RES_OK);
+	SELFTEST_ASSERT_CHANNEL(1, 5);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog    thiisCooommandNotExists 1     5 ;;;", 0)
+		== CMD_RES_UNKNOWN_COMMAND);
+	SELFTEST_ASSERT_CHANNEL(1, 5);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog    setChannel 1;;;", 0) == CMD_RES_NOT_ENOUGH_ARGUMENTS);
+	SELFTEST_ASSERT_CHANNEL(1, 5);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog    setChannel ;;;", 0) == CMD_RES_NOT_ENOUGH_ARGUMENTS);
+	SELFTEST_ASSERT_CHANNEL(1, 5);
+	SELFTEST_ASSERT(CMD_ExecuteCommand("backlog setChannel 1 22; setChannel 1 33", 0) == CMD_RES_OK);
+	SELFTEST_ASSERT_CHANNEL(1, 33);
+}
 void Test_Tasmota() {
 	Test_Tasmota_MQTT_Switch();
 	Test_Tasmota_MQTT_Switch_Double();
+#if ENABLE_LED_BASIC
 	Test_Tasmota_MQTT_RGBCW();
+#endif
 }
 #endif

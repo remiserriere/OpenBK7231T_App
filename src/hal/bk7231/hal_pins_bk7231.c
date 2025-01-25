@@ -14,9 +14,8 @@
 
 //100hz to 20000hz according to tuya code
 #define PWM_FREQUENCY_SLOW 600 //Slow frequency for LED Drivers requiring slower PWM Freq
-#define PWM_FREQUENCY_DEFAULT 1000 //Default Frequency
 
-int pwmfrequency = PWM_FREQUENCY_DEFAULT;
+extern int g_pwmFrequency;
 
 int PIN_GetPWMIndexForPinIndex(int pin) {
 	if(pin == 6)
@@ -77,6 +76,9 @@ int HAL_PIN_ReadDigitalInput(int index) {
 void HAL_PIN_Setup_Input_Pullup(int index) {
 	bk_gpio_config_input_pup(index);
 }
+void HAL_PIN_Setup_Input_Pulldown(int index) {
+	bk_gpio_config_input_pdwn(index);
+}
 void HAL_PIN_Setup_Input(int index) {
 	bk_gpio_config_input(index);
 }
@@ -99,6 +101,7 @@ void HAL_PIN_PWM_Stop(int index) {
 
 void HAL_PIN_PWM_Start(int index) {
 	int pwmIndex;
+	int useFreq;
 
 	pwmIndex = PIN_GetPWMIndexForPinIndex(index);
 
@@ -106,10 +109,12 @@ void HAL_PIN_PWM_Start(int index) {
 	if(pwmIndex == -1) {
 		return;
 	}
+	useFreq = g_pwmFrequency;
 	//Use slow pwm if user has set checkbox in webif
-	if(CFG_HasFlag(OBK_FLAG_SLOW_PWM)) pwmfrequency = PWM_FREQUENCY_SLOW; 
+	if(CFG_HasFlag(OBK_FLAG_SLOW_PWM))
+		useFreq = PWM_FREQUENCY_SLOW;
 
-	uint32_t frequency = (26000000 / pwmfrequency);
+	uint32_t frequency = (26000000 / useFreq);
 #if PLATFORM_BK7231N
 	// OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle);
 	bk_pwm_initialize(pwmIndex, frequency, 0, 0, 0);
@@ -133,7 +138,7 @@ void HAL_PIN_PWM_Update(int index, float value) {
 		value = 100;
 
 	//uint32_t value_upscaled = value * 10.0f; //Duty cycle 0...100 -> 0...1000
-	uint32_t period = (26000000 / pwmfrequency); //TODO: Move to global variable and set in init func so it does not have to be recalculated every time...
+	uint32_t period = (26000000 / g_pwmFrequency); //TODO: Move to global variable and set in init func so it does not have to be recalculated every time...
 	uint32_t duty = (value / 100.0 * period); //No need to use upscaled variable
 #if PLATFORM_BK7231N
 	bk_pwm_update_param(pwmIndex, period, duty,0,0);

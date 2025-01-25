@@ -112,15 +112,15 @@ const char* strcasestr(const char* str1, const char* str2)
 // where is buffer with [64] bytes?
 // 2022-11-02 update: It was also causing crash on OpenBL602. Original strdup was crashing while my strdup works.
 // Let's just rename test_strdup to strdup and let it be our main correct strdup
-#if !defined(PLATFORM_W600) && !defined(PLATFORM_W800)
+#if !defined(PLATFORM_W600) && !defined(PLATFORM_W800) && !defined(WINDOWS)
 // W600 and W800 already seem to have a strdup?
 char *strdup(const char *s)
 {
     char *res;
     size_t len;
 
-    if (s == NULL)
-        return NULL;
+    //if (s == NULL)
+    //    return NULL;
 
     len = strlen(s);
     res = malloc(len + 1);
@@ -256,6 +256,27 @@ void urldecode2_safe(char *dst, const char *srcin, int maxDstLen)
         *dst++ = '\0';
 }
 
+void stripDecimalPlaces(char *p, int maxDecimalPlaces) {
+	while (1) {
+		if (*p == '.')
+			break;
+		if (*p == 0)
+			return;
+		p++;
+	}
+	if (maxDecimalPlaces == 0) {
+		*p = 0;
+		return;
+	}
+	p++;
+	while (maxDecimalPlaces > 0) {
+		if (*p == 0)
+			return;
+		maxDecimalPlaces--;
+		p++;
+	}
+	*p = 0;
+}
 int wal_stricmp(const char* a, const char* b) {
 	int ca, cb;
 	do {
@@ -277,6 +298,33 @@ int wal_strnicmp(const char* a, const char* b, int count) {
 	} while ((ca == cb) && (ca != '\0') && (count > 0));
 	return ca - cb;
 }
+
+const char* skipToNextWord(const char* p) {
+	while (isWhiteSpace(*p) == false) {
+		if (*p == 0)
+			return p;
+		p++;
+	}
+	while (isWhiteSpace(*p)) {
+		if (*p == 0)
+			return p;
+		p++;
+	}
+	return p;
+}
+
+int STR_ReplaceWhiteSpacesWithUnderscore(char *p) {
+	int r = 0;
+	while (*p) {
+		if (*p == ' ' || *p == '\t') {
+			r++;
+			*p = '_';
+		}
+		p++;
+	}
+	return r;
+}
+
 
 WIFI_RSSI_LEVEL wifi_rssi_scale(int8_t rssi_value)
 {

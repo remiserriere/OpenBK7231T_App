@@ -1,12 +1,12 @@
 #ifdef WINDOWS
 
-#include "selftest_local.h".
+#include "selftest_local.h"
 
 
 
 void Test_Demo_ExclusiveRelays() {
 	// reset whole device
-	SIM_ClearOBK();
+	SIM_ClearOBK(0);
 	CMD_ExecuteCommand("setChannel 0 0", 0);
 	CMD_ExecuteCommand("setChannel 1 0", 0);
 	CMD_ExecuteCommand("setChannel 2 0", 0);

@@ -200,10 +200,13 @@ void WEMO_AppendInformationToHTTPIndexPage(http_request_t* request) {
 
 bool Main_GetFirstPowerState() {
 	int i;
+#if ENABLE_LED_BASIC
 	if (LED_IsLEDRunning()) {
 		return LED_GetEnableAll();
 	}
-	else {
+	else 
+#endif
+	{
 		// relays driver
 		for (i = 0; i < CHANNEL_MAX; i++) {
 			if (h_isChannelRelay(i) || CHANNEL_GetType(i) == ChType_Toggle) {
@@ -308,10 +311,10 @@ void WEMO_Init() {
 	g_serial = strdup(serial);
 	g_uid = strdup(uid);
 
-	HTTP_RegisterCallback("/upnp/control/basicevent1", HTTP_POST, WEMO_BasicEvent1);
-	HTTP_RegisterCallback("/eventservice.xml", HTTP_GET, WEMO_EventService);
-	HTTP_RegisterCallback("/metainfoservice.xml", HTTP_GET, WEMO_MetaInfoService);
-	HTTP_RegisterCallback("/setup.xml", HTTP_GET, WEMO_Setup);
+	HTTP_RegisterCallback("/upnp/control/basicevent1", HTTP_POST, WEMO_BasicEvent1, 0);
+	HTTP_RegisterCallback("/eventservice.xml", HTTP_GET, WEMO_EventService, 0);
+	HTTP_RegisterCallback("/metainfoservice.xml", HTTP_GET, WEMO_MetaInfoService, 0);
+	HTTP_RegisterCallback("/setup.xml", HTTP_GET, WEMO_Setup, 0);
 
 	//if (DRV_IsRunning("SSDP") == false) {
 //	ScheduleDriverStart("SSDP", 5);
